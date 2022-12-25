@@ -6,6 +6,54 @@ Behavior_Result :: enum {
 	Running,
 }
 
-execute :: proc(tree: ^Behavior_Tree) -> (result: Behavior_Result) {
+run :: proc(tree: ^Behavior_Tree) -> (result: Behavior_Result) {
+	execute :: proc(tree: ^Behavior_Tree, node: ^Behavior_Node) -> (result: Behavior_Result) {
+		for decorator in node.before_execution {
+			switch d in decorator {
+			case Condition_Decorator:
+				if !(d(node)) {
+					result = .Failure
+					return
+				}
+			}
+		}
+
+		switch n in node.derived {
+		case ^Behavior_Sequence:
+			for child in n.children {
+				result = execute(tree, child)
+				if result == n.halt_signal || result == .Running {
+					break
+				}
+			}
+
+		case ^Behavior_Branch:
+			if n->predicate() {
+				result = execute(tree, n.left)
+			} else {
+				result = execute(tree, n.left)
+			}
+
+		case ^Behavior_Action:
+			switch n->action() {
+			case .Done:
+				result = .Success
+			case .Not_Done:
+				result = .Running
+			}
+		}
+
+		for decorator in node.after_execution {
+			switch d in decorator {
+			case Property_Decorator:
+				if result == d.trigger {
+					node.blackboard[d.key] = d.value
+				}
+			}
+		}
+		return
+	}
+
+	result = execute(tree, tree.root)
 	return
 }
