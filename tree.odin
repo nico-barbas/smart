@@ -81,6 +81,7 @@ init_behavior_node :: proc(tree: ^Behavior_Tree, node: ^Behavior_Node) {
 	case ^Behavior_Action:
 	}
 
+	node.blackboard = &tree.blackboard
 	node.before_execution.allocator = tree.allocator
 	node.after_execution.allocator = tree.allocator
 }
@@ -111,6 +112,18 @@ destroy_blackboard :: proc(b: Blackboard) {
 		}
 	}
 	delete(b)
+}
+
+new_tree :: proc(allocator := context.allocator) -> (tree: ^Behavior_Tree) {
+	tree = new(Behavior_Tree)
+	tree.allocator = allocator
+	tree.blackboard.allocator = allocator
+
+	return tree
+}
+
+set_tree_root :: proc(tree: ^Behavior_Tree, root: ^Behavior_Node) {
+	tree.root = root
 }
 
 destroy_tree :: proc(tree: ^Behavior_Tree) {
