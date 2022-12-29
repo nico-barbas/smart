@@ -66,10 +66,31 @@ new_node :: proc(tree: ^Behavior_Tree, $T: typeid) -> ^T {
 	return node
 }
 
-new_node_from :: proc(tree: ^Behavior_Tree, from: $T) -> ^T {
+new_node_from :: proc(
+	tree: ^Behavior_Tree,
+	from: $T,
+	begins: []Begin_Decorator = nil,
+	ends: []End_Decorator = nil,
+	modifier: Result_Modifier_Decorator = nil,
+) -> ^T {
 	node := new_clone(from, tree.allocator)
 	node.derived = node
 	init_behavior_node(tree, node)
+
+	if len(begins) > 0 {
+		for decorator in begins {
+			append(&node.before_execution, decorator)
+		}
+	}
+	if len(ends) > 0 {
+		for decorator in ends {
+			append(&node.after_execution, decorator)
+		}
+	}
+
+	if modifier != nil {
+		node.result_modifier = modifier
+	}
 	return node
 }
 
