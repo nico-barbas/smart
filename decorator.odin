@@ -2,6 +2,7 @@ package smart
 
 Begin_Decorator :: union {
 	Condition_Decorator,
+	Ignore_Decorator,
 }
 
 End_Decorator :: union {
@@ -13,7 +14,13 @@ Result_Modifier_Decorator :: union {
 	Result_Transformer_Decorator,
 }
 
-Condition_Decorator :: #type proc(node: ^Behavior_Node) -> Condition_Proc_Result
+Condition_Decorator :: struct {
+	condition_proc: #type proc(node: ^Behavior_Node) -> Condition_Proc_Result,
+}
+
+Ignore_Decorator :: struct {
+	ignore_proc: #type proc(node: ^Behavior_Node) -> Condition_Proc_Result,
+}
 
 Property_Decorator :: struct {
 	trigger: Behavior_Result,

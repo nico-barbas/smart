@@ -11,8 +11,13 @@ run :: proc(tree: ^Behavior_Tree) -> (result: Behavior_Result) {
 		for decorator in node.before_execution {
 			switch d in decorator {
 			case Condition_Decorator:
-				if !(d(node)) {
+				if !(d.condition_proc(node)) {
 					result = .Failure
+					return
+				}
+			case Ignore_Decorator:
+				if d.ignore_proc(node) {
+					result = .Success
 					return
 				}
 			}
