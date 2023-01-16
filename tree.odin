@@ -2,21 +2,32 @@ package smart
 
 import "core:runtime"
 
-Behavior_Tree :: struct {
-	allocator:  runtime.Allocator,
-	blackboard: Blackboard,
-	root:       ^Behavior_Node,
+when ODIN_DEBUG {
+	import "core:log"
 }
 
-Blackboard :: map[string]Blackboard_Value
+Behavior_Tree :: struct {
+	allocator:            runtime.Allocator,
+	blackboard:           Blackboard,
+	root:                 ^Behavior_Node,
+	options:              Behavior_Tree_Options,
+	flags:                Behavior_Tree_Flags,
+	utility_refresh_rate: f32,
+	utility_refresh_time: f32,
+}
 
-Blackboard_Value :: union {
-	bool,
-	int,
-	f32,
-	string,
-	Blackboard,
-	rawptr,
+Behavior_Tree_Options :: distinct bit_set[Behavior_Tree_Option]
+
+Behavior_Tree_Option :: enum {
+	Utility_Based,
+	Utility_Sort_Sequences,
+	Utility_Sort_Selectors,
+}
+
+Behavior_Tree_Flags :: distinct bit_set[Behavior_Tree_Flag]
+
+Behavior_Tree_Flag :: enum {
+	Force_Utility_Refresh,
 }
 
 Behavior_Node :: struct {
@@ -26,6 +37,10 @@ Behavior_Node :: struct {
 	before_execution: [dynamic]Begin_Decorator,
 	after_execution:  [dynamic]End_Decorator,
 	result_modifier:  Result_Modifier_Decorator,
+
+	// Utility extension
+	utility_score:    Utility_Score,
+	utility_proc:     proc(node: ^Behavior_Node) -> Utility_Score,
 }
 
 Any_Behavior_Node :: union {
@@ -35,34 +50,52 @@ Any_Behavior_Node :: union {
 }
 
 Behavior_Sequence :: struct {
-	using base:  Behavior_Node,
-	children:    [dynamic]^Behavior_Node,
-	halt_signal: Behavior_Result,
+	using base:             Behavior_Node,
+	children:               [dynamic]^Behavior_Node,
+	halt_signal:            Behavior_Result,
+	override_utility_score: bool,
+	skip_utility_sort:      bool,
 }
 
 Behavior_Branch :: struct {
-	using base: Behavior_Node,
-	predicate:  proc(node: ^Behavior_Node) -> Condition_Proc_Result,
-	left:       ^Behavior_Node,
-	right:      ^Behavior_Node,
+	using base:     Behavior_Node,
+	predicate_proc: proc(node: ^Behavior_Node) -> Condition_Proc_Result,
+	left:           ^Behavior_Node,
+	right:          ^Behavior_Node,
 }
 
 Condition_Proc_Result :: bool
 
 Behavior_Action :: struct {
-	using base: Behavior_Node,
-	action:     proc(node: ^Behavior_Node) -> Action_Proc_Result,
+	using base:  Behavior_Node,
+	action_proc: proc(node: ^Behavior_Node) -> Behavior_Result,
 }
 
-Action_Proc_Result :: enum {
-	Done,
-	Not_Done,
-}
-
-new_node :: proc(tree: ^Behavior_Tree, $T: typeid) -> ^T {
+new_node :: proc(
+	tree: ^Behavior_Tree,
+	$T: typeid,
+	begins: []Begin_Decorator = nil,
+	ends: []End_Decorator = nil,
+	modifier: Result_Modifier_Decorator = nil,
+) -> ^T {
 	node := new(T, tree.allocator)
 	node.derived = node
 	init_behavior_node(tree, node)
+
+	if len(begins) > 0 {
+		for decorator in begins {
+			append(&node.before_execution, decorator)
+		}
+	}
+	if len(ends) > 0 {
+		for decorator in ends {
+			append(&node.after_execution, decorator)
+		}
+	}
+
+	if modifier != nil {
+		node.result_modifier = modifier
+	}
 	return node
 }
 
@@ -95,11 +128,24 @@ new_node_from :: proc(
 }
 
 init_behavior_node :: proc(tree: ^Behavior_Tree, node: ^Behavior_Node) {
+	when ODIN_DEBUG {
+		if .Utility_Based in tree.options && node.utility_proc == nil {
+			log.errorf(
+				"In a Utility based Tree, Behavior nodes must have a utility callback procedure\n",
+			)
+		}
+	}
+
 	switch n in node.derived {
 	case ^Behavior_Sequence:
 		n.children.allocator = tree.allocator
 	case ^Behavior_Branch:
 	case ^Behavior_Action:
+		when ODIN_DEBUG {
+			if n.action_proc == nil {
+				log.errorf("Behavior Action nodes must have a callback procedure\n")
+			}
+		}
 	}
 
 	node.blackboard = &tree.blackboard
@@ -151,4 +197,11 @@ destroy_tree :: proc(tree: ^Behavior_Tree) {
 	context.allocator = tree.allocator
 	destroy_node(tree, tree.root)
 	destroy_blackboard(tree.blackboard)
+}
+
+add_sequence_children :: proc(sequence: ^Behavior_Sequence, children: ..^Behavior_Node) {
+	for child in children {
+		child.parent = sequence
+		append(&sequence.children, child)
+	}
 }
