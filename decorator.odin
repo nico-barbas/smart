@@ -1,8 +1,10 @@
 package smart
 
 Begin_Decorator :: union {
-	Condition_Decorator,
-	Ignore_Decorator,
+	Condition_Proc_Decorator,
+	Condition_Property_Decorator,
+	Ignore_Property_Decorator,
+	Ignore_Proc_Decorator,
 }
 
 End_Decorator :: union {
@@ -14,11 +16,21 @@ Result_Modifier_Decorator :: union {
 	Result_Transformer_Decorator,
 }
 
-Condition_Decorator :: struct {
+Condition_Proc_Decorator :: struct {
 	condition_proc: #type proc(node: ^Behavior_Node) -> Condition_Proc_Result,
 }
 
-Ignore_Decorator :: struct {
+Condition_Property_Decorator :: struct {
+	key:      string,
+	expected: Blackboard_Value,
+}
+
+Ignore_Property_Decorator :: struct {
+	key:      string,
+	expected: Blackboard_Value,
+}
+
+Ignore_Proc_Decorator :: struct {
 	ignore_proc: #type proc(node: ^Behavior_Node) -> Condition_Proc_Result,
 }
 
