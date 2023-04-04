@@ -8,6 +8,7 @@ import "smart"
 
 main :: proc() {
   tree := smart.new_tree()
+  defer smart.destroy_tree(tree)
   
   root := smart.new_node(tree, smart.Behavior_Sequence_Node)
   
