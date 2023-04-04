@@ -3,7 +3,7 @@
 A straight forward implementation of Behavior Trees for game AIs and automation.
 
 Example:
-```
+```cpp
 import "smart"
 
 main :: proc() {
